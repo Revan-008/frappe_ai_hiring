@@ -67,7 +67,7 @@ class LLMClient:
 				temperature=temperature,
 				max_tokens=max_tokens,
 			)
-
+			print(json.dumps(payload, indent=2))
 			# Make API call
 			url = self._get_endpoint_url(config)
 			response = requests.post(
@@ -127,8 +127,8 @@ class LLMClient:
 		base_url = base_url.rstrip("/")
 
 		# For OpenAI-compatible APIs
-		if "/chat/completions" not in base_url:
-			return f"{base_url}/chat/completions"
+		if "/api/chat" not in base_url:
+			return f"{base_url}/api/chat"
 
 		return base_url
 
@@ -153,6 +153,7 @@ class LLMClient:
 			"messages": messages,
 			"temperature": temperature or config.get("temperature", 0.2),
 			"max_tokens": max_tokens or config.get("max_tokens", 2000),
+			"stream": False,
 		}
 
 		return payload
@@ -165,11 +166,15 @@ class LLMClient:
 		if "choices" in response and len(response["choices"]) > 0:
 			return response["choices"][0]["message"]["content"]
 
+		# Ollama /api/chat format (non-streaming)
+		if "message" in response and "content" in response["message"]:
+			return response["message"]["content"]
+
 		# Fallback
 		if "content" in response:
 			return response["content"]
 
-		frappe.throw("Unable to extract content from API response")
+		frappe.throw(f"Unable to extract content from API response. Response keys: {list(response.keys())}")
 
 	def _parse_json_response(self, content: str) -> Dict[str, Any]:
 		"""
